@@ -6,7 +6,7 @@ from functools import wraps
 from abc import ABC
 from abc import abstractmethod
 
-from flask_authz.utils import authorization_decoder, UnSupportedAuthType
+from flask_authz.utils import authorization_decoder as default_authorization_decoder, UnSupportedAuthType
 
 
 class CasbinEnforcer:
@@ -15,8 +15,9 @@ class CasbinEnforcer:
     """
 
     e = None
+    authorization_decoder = None
 
-    def __init__(self, app, adapter, watcher=None):
+    def __init__(self, app, adapter, watcher=None, authorization_decoder=None):
         """
         Args:
             app (object): Flask App object to get Casbin Model
@@ -27,6 +28,10 @@ class CasbinEnforcer:
         self.e = casbin.Enforcer(app.config.get("CASBIN_MODEL"), self.adapter, True)
         if watcher:
             self.e.set_watcher(watcher)
+        if authorization_decoder:
+            self.authorization_decoder = authorization_decoder
+        else:
+            self.authorization_decoder = default_authorization_decoder
 
     def set_watcher(self, watcher):
         """
@@ -56,7 +61,7 @@ class CasbinEnforcer:
                     if header == "Authorization":
                         # Get Auth Value then decode and parse for owner
                         try:
-                            owner = authorization_decoder(request.headers.get(header))
+                            owner = self.authorization_decoder(request.headers.get(header))
                         except UnSupportedAuthType:
                             # Continue if catch unsupported type in the event of
                             # Other headers needing to be checked
